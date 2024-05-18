@@ -1,10 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
-import 'package:firebase_storage/firebase_storage.dart';
-import 'package:mi_app_optativa/src/Controllers/AvatarController.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:mi_app_optativa/src/Service/FireBaseService.dart';
+import 'package:mi_app_optativa/src/Pages/full_screen.dart';
 import 'package:mi_app_optativa/src/Pages/UpLoadImages.dart';
-import 'package:mi_app_optativa/src/Widgets/full_screen.dart';
 import 'package:provider/provider.dart';
+import 'package:mi_app_optativa/src/Controllers/AvatarController.dart';
 
 class Home extends StatefulWidget {
   @override
@@ -13,7 +15,6 @@ class Home extends StatefulWidget {
 
 class _HomeState extends State<Home> {
   bool isDarkMode = false;
-
   late Future<List<String>> _fileNamesFuture;
 
   @override
@@ -22,9 +23,23 @@ class _HomeState extends State<Home> {
     _fileNamesFuture = FirebaseStorageService().fetchFileNames('images');
   }
 
+  Future<void> _takePhotoAndUpload() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.getImage(source: ImageSource.camera);
+    if (pickedFile != null) {
+      final imageFile = File(pickedFile.path);
+      try {
+        await FirebaseStorageService().uploadFile(
+            imageFile, 'images/${DateTime.now().millisecondsSinceEpoch}.jpg');
+      } catch (e) {
+        print('Error uploading file: $e');
+        // Aquí puedes mostrar un mensaje de error al usuario si falla la carga
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final selectedAvatar = Provider.of<AvatarProvider>(context).selectedAvatar;
     return MaterialApp(
       theme: isDarkMode ? ThemeData.dark() : ThemeData.light(),
       home: Scaffold(
@@ -144,15 +159,29 @@ class _HomeState extends State<Home> {
             },
           ),
         ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => ImageUploader()),
-            );
-          },
-          tooltip: 'Subir imagen',
-          child: Icon(Icons.folder),
+        floatingActionButton: Column(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            FloatingActionButton(
+              heroTag: 'upload_image',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => ImageUploader()),
+                );
+              },
+              tooltip: 'Subir imagen',
+              child: Icon(Icons.folder),
+            ),
+            SizedBox(height: 16),
+            FloatingActionButton(
+              heroTag: 'take_photo',
+              onPressed:
+                  _takePhotoAndUpload, // Llama al método para tomar la foto y subirla
+              tooltip: 'Tomar foto',
+              child: Icon(Icons.camera_alt),
+            ),
+          ],
         ),
       ),
     );

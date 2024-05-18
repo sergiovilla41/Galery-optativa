@@ -27,7 +27,7 @@ class LoginApp extends StatelessWidget {
     SystemChrome.setPreferredOrientations(
         [DeviceOrientation.portraitUp, DeviceOrientation.portraitDown]);
     return MaterialApp(
-      title: 'Login App',
+      title: 'Galeria de Imagenes',
       theme: ThemeData(
         primaryColor: Color.fromARGB(255, 43, 82, 38),
         hintColor: Color.fromARGB(255, 67, 105, 34),
