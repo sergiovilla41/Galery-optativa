@@ -1,119 +1,160 @@
-import 'dart:io';
+import 'dart:html' as html;
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:image_cropper/image_cropper.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:mi_app_optativa/src/Service/FireBaseService.dart';
+import 'package:mi_app_optativa/src/Controllers/AvatarController.dart';
+import 'package:mi_app_optativa/src/Widgets/avatar_widget.dart';
+import 'package:provider/provider.dart';
+import 'package:mi_app_optativa/src/Pages/Home.dart'; // Importa la página Home
 
 class ImageUploader extends StatefulWidget {
-  final ImageSource? initialSource;
-
-  ImageUploader({this.initialSource}); // Aquí se define el parámetro
-
   @override
   _ImageUploaderState createState() => _ImageUploaderState();
 }
 
 class _ImageUploaderState extends State<ImageUploader> {
-  final ImagePicker _picker = ImagePicker();
-  File? _imageFile;
+  Uint8List? _imageData;
+  String? _imageUrl;
+  bool isDarkMode = false;
+  bool _isUploading = false; // Nuevo estado para controlar la carga
 
   @override
   void initState() {
     super.initState();
-    if (widget.initialSource != null) {
-      _pickImage(widget.initialSource!);
-    }
-  }
-
-  Future<void> _pickImage(ImageSource source) async {
-    final pickedFile = await _picker.pickImage(source: source);
-    if (pickedFile != null) {
-      final croppedFile = await _cropImage(pickedFile.path);
-      if (croppedFile != null) {
-        setState(() {
-          _imageFile = croppedFile;
-        });
-      }
-    }
-  }
-
-  Future<File?> _cropImage(String filePath) async {
-    CroppedFile? croppedFile = await ImageCropper().cropImage(
-      sourcePath: filePath,
-      aspectRatioPresets: [
-        CropAspectRatioPreset.square,
-        CropAspectRatioPreset.ratio3x2,
-        CropAspectRatioPreset.original,
-        CropAspectRatioPreset.ratio4x3,
-        CropAspectRatioPreset.ratio16x9
-      ],
-      uiSettings: [
-        AndroidUiSettings(
-          toolbarTitle: 'Editar imagen',
-          toolbarColor: Colors.deepOrange,
-          toolbarWidgetColor: Colors.white,
-          initAspectRatio: CropAspectRatioPreset.original,
-          lockAspectRatio: false,
-        ),
-        IOSUiSettings(
-          minimumAspectRatio: 1.0,
-        ),
-      ],
-    );
-
-    if (croppedFile != null) {
-      return File(croppedFile.path);
-    } else {
-      return null;
-    }
+    // Aquí puedes inicializar cualquier variable necesaria
   }
 
   Future<void> _uploadImage() async {
-    if (_imageFile != null) {
-      final fileName = DateTime.now().millisecondsSinceEpoch.toString();
-      final firebaseStorageService = FirebaseStorageService();
-      await firebaseStorageService.uploadImage(_imageFile!.path, fileName);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Imagen subida con éxito')),
-      );
-      Navigator.pop(context);
-    }
+    final html.FileUploadInputElement input = html.FileUploadInputElement()
+      ..accept = 'image/*';
+    input.click();
+
+    input.onChange.listen((event) {
+      final file = input.files!.first;
+      final reader = html.FileReader();
+      reader.readAsDataUrl(file); // Cambiado a readAsDataUrl
+      reader.onLoadEnd.listen((loadEndEvent) async {
+        final result = reader.result;
+        setState(() {
+          if (result is String) {
+            // Convertir la cadena base64 a Uint8List
+            _imageData = _convertDataUrlToUint8List(result);
+            _imageUrl = null; // Limpiar la URL de la imagen previa
+            _isUploading = true; // Indicar que se está subiendo la imagen
+          }
+        });
+
+        final ref = FirebaseStorage.instance
+            .ref()
+            .child('images')
+            .child(DateTime.now().toString() + '.jpg');
+        final uploadTask = ref.putData(_imageData!);
+        await uploadTask;
+
+        final downloadURL = await ref.getDownloadURL();
+        setState(() {
+          _imageUrl = downloadURL;
+          _isUploading = false; // Indicar que la carga ha finalizado
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Imagen cargada exitosamente')),
+        );
+
+        // Redireccionar al Home después de cargar la imagen
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => Home()), // Página Home
+        );
+      });
+    });
+  }
+
+  Uint8List _convertDataUrlToUint8List(String dataUrl) {
+    final base64EncodedString = dataUrl.split(',').last;
+    return Uint8List.fromList(base64.decode(base64EncodedString));
   }
 
   @override
   Widget build(BuildContext context) {
+    final selectedAvatar = Provider.of<AvatarProvider>(context).selectedAvatar;
     return Scaffold(
       appBar: AppBar(
-        title: Text('Subir imagen'),
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+        title: Row(
           children: [
-            _imageFile == null
-                ? Text('No hay imagen seleccionada')
-                : Image.file(_imageFile!),
-            SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                ElevatedButton(
-                  onPressed: () => _pickImage(ImageSource.camera),
-                  child: Text('Tomar foto'),
+            Container(
+              margin: EdgeInsets.only(right: 2),
+              child: Text(
+                'Subir Imagen',
+                style: TextStyle(
+                  fontFamily: 'FredokaOne',
+                  fontSize: 22,
+                  color: isDarkMode ? Colors.white : Colors.white,
                 ),
-                ElevatedButton(
-                  onPressed: () => _pickImage(ImageSource.gallery),
-                  child: Text('Seleccionar de galería'),
-                ),
-              ],
+              ),
             ),
-            SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _uploadImage,
-              child: Text('Subir imagen'),
+            AvatarWidget(
+              avatar: selectedAvatar,
+              onSelectAvatar: (avatar) {
+                Provider.of<AvatarProvider>(context, listen: false)
+                    .setSelectedAvatar(avatar);
+              },
             ),
           ],
+        ),
+        backgroundColor: isDarkMode
+            ? Color.fromARGB(255, 61, 60, 60)
+            : Color.fromARGB(220, 8, 81, 177),
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back,
+              color: isDarkMode ? Colors.white : Colors.white),
+          onPressed: () {
+            Navigator.pop(context);
+          },
+        ),
+      ),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: isDarkMode
+                ? [
+                    Color.fromARGB(255, 36, 70, 36),
+                    Color.fromARGB(179, 22, 24, 23)
+                  ]
+                : [
+                    Color.fromARGB(255, 11, 90, 128),
+                    Color.fromARGB(0, 31, 28, 167)
+                  ],
+            begin: Alignment.topCenter,
+          ),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _isUploading
+                  ? CircularProgressIndicator() // Indicador de carga
+                  : _imageUrl == null
+                      ? Text(
+                          'Selecciona una imagen',
+                          style: TextStyle(
+                            color: Colors.white, // Cambia el color del texto
+                            fontSize: 20.0, // Cambia el tamaño del texto
+                          ),
+                        )
+                      : Icon(
+                          Icons.check_circle, // Icono de confirmación
+                          color: Color.fromARGB(255, 70, 148, 184),
+                          size: 50,
+                        ),
+              SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: _isUploading ? null : _uploadImage,
+                child: Text('Seleccionar imagen'),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -4,15 +4,44 @@ import 'package:firebase_storage/firebase_storage.dart';
 
 class FirebaseStorageService {
   final _storage = FirebaseStorage.instance;
+
   Future<List<String>> fetchFileNames(String directory) async {
     try {
       final ref = FirebaseStorage.instance.ref().child(directory);
       final result = await ref.listAll();
-      final fileNames = result.items.map((item) => item.name).toList();
-      return fileNames;
+
+      // Obtener nombres de archivo con metadatos
+      final fileNamesWithMetadata =
+          await Future.wait(result.items.map((item) async {
+        final metadata = await item.getMetadata();
+        final uploadedAt = metadata.customMetadata?['uploadedAt'];
+        if (uploadedAt != null) {
+          return {
+            'name': item.name,
+            'uploadedAt': DateTime.parse(uploadedAt),
+          };
+        } else {
+          // Si no hay fecha de carga, asignar una fecha predeterminada
+          return {
+            'name': item.name,
+            'uploadedAt': DateTime
+                .now(), // O cualquier otra fecha predeterminada que prefieras
+          };
+        }
+      }));
+
+      // Ordenar los nombres de archivo por fecha de carga (más reciente primero)
+      fileNamesWithMetadata.sort((a, b) =>
+          (b['uploadedAt'] as DateTime).compareTo(a['uploadedAt'] as DateTime));
+
+      // Extraer solo los nombres de archivo
+      final sortedFileNames =
+          fileNamesWithMetadata.map((item) => item['name'] as String).toList();
+
+      return sortedFileNames;
     } catch (e) {
       print('Error al listar los archivos: $e');
-      return [];
+      return []; // Devuelve una lista vacía en caso de error
     }
   }
 
@@ -42,6 +71,18 @@ class FirebaseStorageService {
     } catch (e) {
       print('Error uploading file: $e');
       throw e; // Propaga el error para que pueda ser manejado en el widget que llama a este método
+    }
+  }
+
+  Future<void> deleteFiles(List<String> fileNames) async {
+    try {
+      await Future.wait(fileNames.map((fileName) async {
+        final ref = FirebaseStorage.instance.ref().child('images/$fileName');
+        await ref.delete();
+      }));
+    } catch (e) {
+      print('Error al eliminar archivos: $e');
+      throw e;
     }
   }
 }

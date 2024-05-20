@@ -1,12 +1,9 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:mi_app_optativa/src/Pages/image_uploader.dart';
 import 'package:mi_app_optativa/src/Service/FireBaseService.dart';
 import 'package:mi_app_optativa/src/Pages/full_screen.dart';
-import 'package:mi_app_optativa/src/Pages/UpLoadImages.dart';
-import 'package:provider/provider.dart';
-import 'package:mi_app_optativa/src/Controllers/AvatarController.dart';
+import 'dart:io';
 
 class Home extends StatefulWidget {
   @override
@@ -138,6 +135,8 @@ class _HomeState extends State<Home> {
                                       MaterialPageRoute(
                                         builder: (context) => FullImageScreen(
                                           imageUrl: imageUrl,
+                                          imagePaths: [], // Reemplaza [] con la lista real de rutas de imágenes
+                                          initialIndex: 0,
                                         ),
                                       ),
                                     );

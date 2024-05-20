@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mi_app_optativa/src/Pages/Home.dart';
 import 'package:mi_app_optativa/src/Service/FireBaseService.dart';
 
 class FileListScreen extends StatefulWidget {
@@ -8,7 +9,8 @@ class FileListScreen extends StatefulWidget {
 
 class _FileListScreenState extends State<FileListScreen> {
   final FirebaseStorageService _storageService = FirebaseStorageService();
-  late List<String> fileNames;
+  List<String> fileNames = []; // Inicializa como una lista vacía
+  List<String> selectedFiles = []; // Lista de archivos seleccionados
 
   @override
   void initState() {
@@ -25,48 +27,91 @@ class _FileListScreenState extends State<FileListScreen> {
     });
   }
 
+  Future<void> deleteSelectedFiles() async {
+    try {
+      await _storageService.deleteFiles(selectedFiles);
+      setState(() {
+        fileNames.removeWhere((fileName) => selectedFiles.contains(fileName));
+        selectedFiles.clear();
+      });
+      // Actualizar la lista de archivos después de eliminar
+      fetchFileNames();
+
+      // Redireccionar al Home después de eliminar la imagen
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => Home()), // Página Home
+      );
+    } catch (e) {
+      print('Error al eliminar archivos seleccionados: $e');
+      // Aquí puedes mostrar un mensaje de error al usuario si falla la eliminación
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text('Listado de Archivos'),
+        actions: [
+          if (selectedFiles.isNotEmpty)
+            IconButton(
+              icon: Icon(Icons.delete),
+              onPressed: deleteSelectedFiles,
+            ),
+        ],
       ),
-      body: fileNames == null
+      body: fileNames.isEmpty
           ? Center(child: CircularProgressIndicator())
-          : ListView.builder(
+          : GridView.builder(
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount:
+                    3, // Cambia esto según el número de columnas que desees
+              ),
               itemCount: fileNames.length,
               itemBuilder: (BuildContext context, int index) {
                 final fileName = fileNames[index];
-                return FutureBuilder<String>(
-                  future: _storageService.getImageURL('images/$fileName'),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return ListTile(
-                        title: Text(fileName),
-                        subtitle: CircularProgressIndicator(),
-                      );
-                    } else if (snapshot.hasError) {
-                      return ListTile(
-                        title: Text(fileName),
-                        subtitle: Text(
-                            'Error al cargar la imagen: ${snapshot.error}'),
-                      );
-                    } else {
-                      final imageUrl = snapshot.data!;
-                      return ListTile(
-                        title: Text(fileName),
-                        leading: imageUrl.isEmpty
-                            ? Icon(Icons
-                                .error_outline) // Muestra un icono de error si la URL está vacía
-                            : Image.network(
-                                imageUrl,
-                                fit: BoxFit.cover,
-                                width: 100,
-                                height: 100,
-                              ),
-                      );
-                    }
+                return GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      if (selectedFiles.contains(fileName)) {
+                        selectedFiles.remove(fileName);
+                      } else {
+                        selectedFiles.add(fileName);
+                      }
+                    });
                   },
+                  child: Stack(
+                    children: [
+                      FutureBuilder<String>(
+                        future: _storageService.getImageURL('images/$fileName'),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return Center(child: CircularProgressIndicator());
+                          } else if (snapshot.hasError) {
+                            return Center(child: Icon(Icons.error));
+                          } else {
+                            final imageUrl = snapshot.data!;
+                            return imageUrl.isEmpty
+                                ? Center(child: Icon(Icons.error_outline))
+                                : Image.network(
+                                    imageUrl,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return Icon(Icons.error);
+                                    },
+                                  );
+                          }
+                        },
+                      ),
+                      if (selectedFiles.contains(fileName))
+                        Positioned(
+                          top: 4,
+                          right: 4,
+                          child: Icon(Icons.check_circle, color: Colors.green),
+                        ),
+                    ],
+                  ),
                 );
               },
             ),
