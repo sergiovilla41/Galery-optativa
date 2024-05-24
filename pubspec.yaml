@@ -28,7 +28,7 @@ dependencies:
   flutter_image_editor: ^2.1.0
   image_cropper: ^5.0.1
   image_editor: ^1.5.1
-  image: ^3.0.1
+  image: ^4.2.0
   image_gallery_saver: ^2.0.3
   flutter_web_browser: ^0.17.1
   camera: ^0.10.0+2

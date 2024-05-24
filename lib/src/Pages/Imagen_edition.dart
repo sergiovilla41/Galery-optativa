@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
@@ -25,6 +26,7 @@ class _EditImagePageState extends State<EditImagePage> {
   bool _isLoading = true;
   bool _isProcessing = false;
   final CropController _cropController = CropController(aspectRatio: 1.0);
+  img.Image? _originalImage;
 
   @override
   void initState() {
@@ -42,6 +44,7 @@ class _EditImagePageState extends State<EditImagePage> {
           setState(() {
             _imageProvider = MemoryImage(imageBytes);
             _editedImage = img.decodeImage(imageBytes);
+            _originalImage = img.decodeImage(imageBytes);
             _isLoading = false;
           });
         } else {
@@ -55,6 +58,7 @@ class _EditImagePageState extends State<EditImagePage> {
           setState(() {
             _imageProvider = FileImage(imageFile);
             _editedImage = img.decodeImage(imageBytes);
+            _originalImage = img.decodeImage(imageBytes);
             _isLoading = false;
           });
         } else {
@@ -126,7 +130,7 @@ class _EditImagePageState extends State<EditImagePage> {
       });
 
       try {
-        final rotatedImage = img.copyRotate(_editedImage!, 90);
+        final rotatedImage = img.copyRotate(_editedImage!, angle: 90);
         final rotatedImageBytes =
             Uint8List.fromList(img.encodeJpg(rotatedImage));
         await Future.delayed(Duration(seconds: 1));
@@ -144,21 +148,36 @@ class _EditImagePageState extends State<EditImagePage> {
     }
   }
 
-  void _applyFilter() {
-    if (_editedImage != null) {
-      setState(() {
-        _isProcessing = true;
-      });
+  void _applyFilter(String filterType) {
+    if (_originalImage == null) return;
 
-      final filteredImage = img.grayscale(_editedImage!);
-      setState(() {
-        _editedImage = filteredImage;
-        final filteredImageBytes =
-            Uint8List.fromList(img.encodeJpg(filteredImage));
-        _imageProvider = MemoryImage(filteredImageBytes);
-        _isProcessing = false;
-      });
+    setState(() {
+      _isProcessing = true;
+    });
+
+    img.Image filteredImage;
+
+    switch (filterType) {
+      case 'blackWhite':
+        filteredImage = img.grayscale(_originalImage!);
+        break;
+      case 'blur':
+        filteredImage = img.gaussianBlur(_originalImage!, radius: 10);
+        break;
+      case 'blue':
+        filteredImage =
+            img.colorOffset(_originalImage!, red: -100, green: -100, blue: 150);
+        break;
+      default:
+        filteredImage = _originalImage!;
     }
+
+    final filteredImageBytes = Uint8List.fromList(img.encodeJpg(filteredImage));
+    setState(() {
+      _editedImage = filteredImage;
+      _imageProvider = MemoryImage(filteredImageBytes);
+      _isProcessing = false;
+    });
   }
 
   Future<void> _saveImage(BuildContext context) async {
@@ -216,12 +235,9 @@ class _EditImagePageState extends State<EditImagePage> {
                     Expanded(
                       child: Stack(
                         children: [
-                          Crop(
-                            controller: _cropController,
-                            child: Image(
-                              image: _imageProvider,
-                              fit: BoxFit.contain,
-                            ),
+                          Image(
+                            image: _imageProvider,
+                            fit: BoxFit.contain,
                           ),
                           if (_isProcessing)
                             Container(
@@ -250,9 +266,23 @@ class _EditImagePageState extends State<EditImagePage> {
                           icon: Icon(Icons.rotate_right),
                           onPressed: _rotateImage,
                         ),
-                        IconButton(
+                        PopupMenuButton<String>(
                           icon: Icon(Icons.filter),
-                          onPressed: _applyFilter,
+                          onSelected: _applyFilter,
+                          itemBuilder: (context) => [
+                            PopupMenuItem(
+                              value: 'blackWhite',
+                              child: Text("Blanco y Negro"),
+                            ),
+                            PopupMenuItem(
+                              value: 'blur',
+                              child: Text("Difuminar"),
+                            ),
+                            PopupMenuItem(
+                              value: 'blue',
+                              child: Text("Filtro Azul"),
+                            ),
+                          ],
                         ),
                       ],
                     ),
