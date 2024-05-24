@@ -73,81 +73,6 @@ class _EditImagePageState extends State<EditImagePage> {
     }
   }
 
-  Future<void> _cropImage() async {
-    if (_editedImage == null) return;
-
-    if (kIsWeb) {
-      print('Cropping on web...');
-      final croppedArea = _cropController.crop();
-      if (croppedArea != null) {
-        final croppedImageBytes = Uint8List.fromList(croppedArea as List<int>);
-        setState(() {
-          _editedImage = img.decodeImage(croppedImageBytes);
-          _imageProvider = MemoryImage(croppedImageBytes);
-        });
-      }
-    } else {
-      print('Cropping on mobile...');
-      File? tempFile;
-      final tempDir = await getTemporaryDirectory();
-      tempFile = File('${tempDir.path}/temp_image.jpg');
-      await tempFile.writeAsBytes(img.encodeJpg(_editedImage!));
-
-      final croppedFile = await ImageCropper().cropImage(
-        sourcePath: tempFile.path,
-        aspectRatioPresets: [
-          CropAspectRatioPreset.square,
-          CropAspectRatioPreset.ratio3x2,
-          CropAspectRatioPreset.original,
-          CropAspectRatioPreset.ratio4x3,
-          CropAspectRatioPreset.ratio16x9,
-        ],
-        uiSettings: [
-          AndroidUiSettings(
-            toolbarTitle: 'Recortar Imagen',
-            toolbarColor: Colors.deepOrange,
-            toolbarWidgetColor: Colors.white,
-            initAspectRatio: CropAspectRatioPreset.original,
-            lockAspectRatio: false,
-          ),
-        ],
-      );
-
-      if (croppedFile != null) {
-        final croppedImageBytes = await croppedFile.readAsBytes();
-        setState(() {
-          _editedImage = img.decodeImage(croppedImageBytes);
-          _imageProvider = MemoryImage(croppedImageBytes);
-        });
-      }
-    }
-  }
-
-  Future<void> _rotateImage() async {
-    if (_editedImage != null) {
-      setState(() {
-        _isProcessing = true;
-      });
-
-      try {
-        final rotatedImage = img.copyRotate(_editedImage!, angle: 90);
-        final rotatedImageBytes =
-            Uint8List.fromList(img.encodeJpg(rotatedImage));
-        await Future.delayed(Duration(seconds: 1));
-        setState(() {
-          _editedImage = rotatedImage;
-          _imageProvider = MemoryImage(rotatedImageBytes);
-          _isProcessing = false;
-        });
-      } catch (e) {
-        print('Error rotating image: $e');
-        setState(() {
-          _isProcessing = false;
-        });
-      }
-    }
-  }
-
   void _applyFilter(String filterType) {
     if (_originalImage == null) return;
 
@@ -255,16 +180,16 @@ class _EditImagePageState extends State<EditImagePage> {
                         if (!kIsWeb)
                           IconButton(
                             icon: Icon(Icons.crop),
-                            onPressed: _cropImage,
+                            onPressed: () {},
                           ),
                         if (kIsWeb)
                           IconButton(
                             icon: Icon(Icons.crop),
-                            onPressed: _cropImage,
+                            onPressed: () {},
                           ),
                         IconButton(
                           icon: Icon(Icons.rotate_right),
-                          onPressed: _rotateImage,
+                          onPressed: () {},
                         ),
                         PopupMenuButton<String>(
                           icon: Icon(Icons.filter),
