@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:path_provider/path_provider.dart';
 
 class FirebaseStorageService {
   final _storage = FirebaseStorage.instance;
@@ -83,6 +84,21 @@ class FirebaseStorageService {
     } catch (e) {
       print('Error al eliminar archivos: $e');
       throw e;
+    }
+  }
+
+  Future<void> downloadSelectedFiles(List<String> fileNames) async {
+    try {
+      final Directory? downloadDirectory = await getExternalStorageDirectory();
+      for (String fileName in fileNames) {
+        final ref = FirebaseStorage.instance.ref().child('images/$fileName');
+        final File downloadFile = File('${downloadDirectory!.path}/$fileName');
+        await ref.writeToFile(downloadFile);
+      }
+      // Mostrar un mensaje de éxito al usuario
+    } catch (e) {
+      print('Error al descargar archivos seleccionados: $e');
+      // Mostrar un mensaje de error al usuario
     }
   }
 }

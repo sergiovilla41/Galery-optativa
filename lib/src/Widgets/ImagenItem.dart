@@ -1,6 +1,10 @@
+import 'dart:io';
+
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:mi_app_optativa/src/Pages/Home.dart';
 import 'package:mi_app_optativa/src/Service/FireBaseService.dart';
+import 'package:path_provider/path_provider.dart'; // Importa este paquete para acceder al directorio de descarga
 
 class FileListScreen extends StatefulWidget {
   @override
@@ -48,6 +52,21 @@ class _FileListScreenState extends State<FileListScreen> {
     }
   }
 
+  Future<void> downloadSelectedFiles(List<String> fileNames) async {
+    try {
+      final Directory? downloadDirectory = await getExternalStorageDirectory();
+      for (String fileName in fileNames) {
+        final ref = FirebaseStorage.instance.ref().child('images/$fileName');
+        final File downloadFile = File('${downloadDirectory!.path}/$fileName');
+        await ref.writeToFile(downloadFile);
+      }
+      // Mostrar un mensaje de éxito al usuario
+    } catch (e) {
+      print('Error al descargar archivos seleccionados: $e');
+      // Mostrar un mensaje de error al usuario
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -58,6 +77,13 @@ class _FileListScreenState extends State<FileListScreen> {
             IconButton(
               icon: Icon(Icons.delete),
               onPressed: deleteSelectedFiles,
+            ),
+          if (selectedFiles.isNotEmpty)
+            IconButton(
+              icon: Icon(Icons.download),
+              onPressed: () {
+                downloadSelectedFiles(selectedFiles);
+              },
             ),
         ],
       ),

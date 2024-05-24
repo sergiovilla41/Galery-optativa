@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:mi_app_optativa/src/Pages/camera_floating_button.dart';
 import 'package:mi_app_optativa/src/Pages/image_uploader.dart';
 import 'package:mi_app_optativa/src/Service/FireBaseService.dart';
 import 'package:mi_app_optativa/src/Pages/full_screen.dart';
@@ -80,7 +81,7 @@ class _HomeState extends State<Home> {
                     ]
                   : [
                       Color.fromARGB(255, 11, 90, 128),
-                      Color.fromARGB(0, 31, 28, 167)
+                      Color.fromARGB(106, 30, 28, 167)
                     ],
               begin: Alignment.topCenter,
             ),
@@ -173,13 +174,7 @@ class _HomeState extends State<Home> {
               child: Icon(Icons.folder),
             ),
             SizedBox(height: 16),
-            FloatingActionButton(
-              heroTag: 'take_photo',
-              onPressed:
-                  _takePhotoAndUpload, // Llama al método para tomar la foto y subirla
-              tooltip: 'Tomar foto',
-              child: Icon(Icons.camera_alt),
-            ),
+            CameraFloatingButton(), // Agregar el botón de cámara aquí
           ],
         ),
       ),
