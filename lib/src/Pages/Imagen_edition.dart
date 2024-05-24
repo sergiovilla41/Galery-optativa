@@ -24,6 +24,7 @@ class _EditImagePageState extends State<EditImagePage> {
   img.Image? _editedImage;
   ImageProvider _imageProvider = MemoryImage(Uint8List(0));
   bool _isLoading = true;
+  bool _isLoadingt = true;
   bool _isProcessing = false;
   final CropController _cropController = CropController(aspectRatio: 1.0);
   img.Image? _originalImage;
