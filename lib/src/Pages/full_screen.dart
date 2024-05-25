@@ -8,7 +8,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:html' as html; // Asegúrate de importar html para Flutter web
 import 'package:path_provider/path_provider.dart';
-import 'package:social_share/social_share.dart';
 
 class FullImageScreen extends StatelessWidget {
   final String imageUrl;
@@ -37,18 +36,16 @@ class FullImageScreen extends StatelessWidget {
       print('Intentando descargar imagen: $imagePath');
 
       if (kIsWeb) {
-        // Lógica de descarga para web
         final anchor = html.AnchorElement(href: imageUrl)
           ..setAttribute('target', '_blank')
-          ..setAttribute('download', '');
+          ..setAttribute('download',
+              ''); // Añade el atributo 'download' para indicar al navegador que descargue el archivo
         anchor.click();
       } else {
-        // Lógica de descarga para móvil y escritorio
         String? selectedDirectory =
             await FilePicker.platform.getDirectoryPath();
 
         if (selectedDirectory != null) {
-          // Descargar la imagen al directorio seleccionado
           await _storageService.downloadFileToDirectory(
               imagePath, selectedDirectory);
           ScaffoldMessenger.of(context).showSnackBar(
@@ -83,19 +80,18 @@ class FullImageScreen extends StatelessWidget {
       final ref = FirebaseStorage.instance.ref().child('images/$imagePath');
 
       if (kIsWeb) {
+        // Implementación específica para compartir en web
         final imageUrl = await ref.getDownloadURL();
-        await Share.share(imageUrl, subject: '¡Mira esta imagen!');
+        await html.window.navigator.share({'text': imageUrl});
       } else {
+        // Implementación para plataformas móviles (Android e iOS)
         final Directory tempDir = await getTemporaryDirectory();
         final File tempFile = File('${tempDir.path}/$imagePath');
 
         final DownloadTask downloadTask = ref.writeToFile(tempFile);
         await downloadTask.whenComplete(() async {
           try {
-            await SocialShare.shareOptions(
-              '¡Mira esta imagen!',
-              imagePath: tempFile.path,
-            );
+            await Share.shareFiles([tempFile.path], text: '¡Mira esta imagen!');
           } catch (e) {
             print('Error al compartir la imagen: $e');
             ScaffoldMessenger.of(context).showSnackBar(
