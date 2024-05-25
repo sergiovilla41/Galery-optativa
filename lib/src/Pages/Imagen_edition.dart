@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -8,6 +9,8 @@ import 'package:http/http.dart' as http;
 import 'package:image/image.dart' as img;
 import 'package:firebase_storage/firebase_storage.dart' as firebase_storage;
 import 'package:image_cropper/image_cropper.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:universal_html/html.dart' as html;
 import 'package:mi_app_optativa/src/Pages/Home.dart';
 
@@ -103,48 +106,33 @@ class _EditImagePageState extends State<EditImagePage> {
     });
   }
 
-  Future<void> _cropImage() async {
-    try {
-      if (_editedImage != null) {
-        if (kIsWeb) {
-          final croppedFile = await _cropImageWeb();
-          if (croppedFile != null) {
-            final reader = html.FileReader();
-            reader.readAsDataUrl(croppedFile);
-            reader.onLoadEnd.listen((event) {
-              final imageDataUrl = reader.result as String?;
-              if (imageDataUrl != null) {
-                final base64Image = imageDataUrl.replaceFirst(
-                    RegExp(r'data:image/[^;]+;base64,'), '');
-                final croppedImageBytes = base64.decode(base64Image);
-                setState(() {
-                  _editedImage = img.decodeImage(croppedImageBytes);
-                  _imageProvider = MemoryImage(croppedImageBytes);
-                });
-              }
-            });
-          }
-        } else {
-          // Rest of the code for non-web platforms
-        }
-      }
-    } catch (e) {
-      print('Error cropping image: $e');
+  void cropImage(img.Image image, int width, int height) {
+    // Verifica que las dimensiones del recorte sean válidas
+    if (width <= 0 ||
+        height <= 0 ||
+        width > image.width ||
+        height > image.height) {
+      print('Invalid crop dimensions');
+      return;
     }
-  }
 
-  Future<html.File?> _cropImageWeb() async {
-    final completer = Completer<html.File?>();
-    final input = html.FileUploadInputElement()..accept = 'image/*';
-    input.click();
-    input.onChange.listen((event) {
-      if (input.files!.isNotEmpty) {
-        completer.complete(input.files!.first);
-      } else {
-        completer.complete(null);
-      }
+    // Calcula las coordenadas del recorte para centrarlo en la imagen original
+    final x = (image.width - width) ~/ 2;
+    final y = (image.height - height) ~/ 2;
+
+    // Realiza el recorte
+    final croppedImage = img.copyCrop(
+      image,
+      x: x,
+      y: y,
+      width: width,
+      height: height,
+    );
+
+    // Actualiza la imagen editada con el recorte
+    setState(() {
+      _editedImage = croppedImage;
     });
-    return completer.future;
   }
 
   Future<void> _saveImage(BuildContext context) async {
@@ -221,7 +209,8 @@ class _EditImagePageState extends State<EditImagePage> {
                       children: [
                         IconButton(
                           icon: Icon(Icons.crop),
-                          onPressed: _cropImage,
+                          onPressed: () => cropImage(_editedImage!, 200,
+                              200), // Por ejemplo, recorte de 200x200 píxeles
                         ),
                         IconButton(
                           icon: Icon(Icons.rotate_right),
