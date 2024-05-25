@@ -1,15 +1,15 @@
-import 'dart:io';
-import 'dart:typed_data';
-import 'dart:ui' as ui;
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:image/image.dart' as img;
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
-import 'package:image_cropper/image_cropper.dart';
-import 'package:crop/crop.dart';
+import 'package:image/image.dart' as img;
 import 'package:firebase_storage/firebase_storage.dart' as firebase_storage;
+import 'package:image_cropper/image_cropper.dart';
+import 'package:universal_html/html.dart' as html;
 import 'package:mi_app_optativa/src/Pages/Home.dart';
-import 'package:path_provider/path_provider.dart';
 
 class EditImagePage extends StatefulWidget {
   final String imageUrl;
@@ -24,9 +24,7 @@ class _EditImagePageState extends State<EditImagePage> {
   img.Image? _editedImage;
   ImageProvider _imageProvider = MemoryImage(Uint8List(0));
   bool _isLoading = true;
-  bool _isLoadingt = true;
   bool _isProcessing = false;
-  final CropController _cropController = CropController(aspectRatio: 1.0);
   img.Image? _originalImage;
 
   @override
@@ -38,7 +36,6 @@ class _EditImagePageState extends State<EditImagePage> {
   Future<void> _loadImage() async {
     try {
       if (kIsWeb) {
-        print('Loading image on web...');
         final response = await http.get(Uri.parse(widget.imageUrl));
         if (response.statusCode == 200) {
           final imageBytes = response.bodyBytes;
@@ -52,18 +49,18 @@ class _EditImagePageState extends State<EditImagePage> {
           print('Failed to load image from web');
         }
       } else {
-        print('Loading image on mobile...');
-        final imageFile = File(widget.imageUrl);
-        if (imageFile.existsSync()) {
-          final imageBytes = imageFile.readAsBytesSync();
+        final ref = firebase_storage.FirebaseStorage.instance
+            .refFromURL(widget.imageUrl);
+        final imageData = await ref.getData();
+        if (imageData != null) {
           setState(() {
-            _imageProvider = FileImage(imageFile);
-            _editedImage = img.decodeImage(imageBytes);
-            _originalImage = img.decodeImage(imageBytes);
+            _imageProvider = MemoryImage(imageData);
+            _editedImage = img.decodeImage(imageData);
+            _originalImage = img.decodeImage(imageData);
             _isLoading = false;
           });
         } else {
-          print('File does not exist.');
+          print('Failed to load image from Firebase Storage');
         }
       }
     } catch (e) {
@@ -104,6 +101,50 @@ class _EditImagePageState extends State<EditImagePage> {
       _imageProvider = MemoryImage(filteredImageBytes);
       _isProcessing = false;
     });
+  }
+
+  Future<void> _cropImage() async {
+    try {
+      if (_editedImage != null) {
+        if (kIsWeb) {
+          final croppedFile = await _cropImageWeb();
+          if (croppedFile != null) {
+            final reader = html.FileReader();
+            reader.readAsDataUrl(croppedFile);
+            reader.onLoadEnd.listen((event) {
+              final imageDataUrl = reader.result as String?;
+              if (imageDataUrl != null) {
+                final base64Image = imageDataUrl.replaceFirst(
+                    RegExp(r'data:image/[^;]+;base64,'), '');
+                final croppedImageBytes = base64.decode(base64Image);
+                setState(() {
+                  _editedImage = img.decodeImage(croppedImageBytes);
+                  _imageProvider = MemoryImage(croppedImageBytes);
+                });
+              }
+            });
+          }
+        } else {
+          // Rest of the code for non-web platforms
+        }
+      }
+    } catch (e) {
+      print('Error cropping image: $e');
+    }
+  }
+
+  Future<html.File?> _cropImageWeb() async {
+    final completer = Completer<html.File?>();
+    final input = html.FileUploadInputElement()..accept = 'image/*';
+    input.click();
+    input.onChange.listen((event) {
+      if (input.files!.isNotEmpty) {
+        completer.complete(input.files!.first);
+      } else {
+        completer.complete(null);
+      }
+    });
+    return completer.future;
   }
 
   Future<void> _saveImage(BuildContext context) async {
@@ -178,19 +219,20 @@ class _EditImagePageState extends State<EditImagePage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        if (!kIsWeb)
-                          IconButton(
-                            icon: Icon(Icons.crop),
-                            onPressed: () {},
-                          ),
-                        if (kIsWeb)
-                          IconButton(
-                            icon: Icon(Icons.crop),
-                            onPressed: () {},
-                          ),
+                        IconButton(
+                          icon: Icon(Icons.crop),
+                          onPressed: _cropImage,
+                        ),
                         IconButton(
                           icon: Icon(Icons.rotate_right),
-                          onPressed: () {},
+                          onPressed: () {
+                            setState(() {
+                              _editedImage =
+                                  img.copyRotate(_editedImage!, angle: 90);
+                              _imageProvider = MemoryImage(Uint8List.fromList(
+                                  img.encodeJpg(_editedImage!)));
+                            });
+                          },
                         ),
                         PopupMenuButton<String>(
                           icon: Icon(Icons.filter),
