@@ -1,10 +1,10 @@
 import 'dart:io';
-
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:mi_app_optativa/src/Pages/Home.dart';
 import 'package:mi_app_optativa/src/Service/FireBaseService.dart';
-import 'package:path_provider/path_provider.dart'; // Importa este paquete para acceder al directorio de descarga
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 class FileListScreen extends StatefulWidget {
   @override
@@ -13,8 +13,8 @@ class FileListScreen extends StatefulWidget {
 
 class _FileListScreenState extends State<FileListScreen> {
   final FirebaseStorageService _storageService = FirebaseStorageService();
-  List<String> fileNames = []; // Inicializa como una lista vacía
-  List<String> selectedFiles = []; // Lista de archivos seleccionados
+  List<String> fileNames = [];
+  List<String> selectedFiles = [];
 
   @override
   void initState() {
@@ -23,7 +23,7 @@ class _FileListScreenState extends State<FileListScreen> {
   }
 
   Future<void> fetchFileNames() async {
-    final directory = "images"; // Reemplaza con tu directorio correcto
+    final directory = "images";
     final result = await _storageService.fetchFileNames(directory);
 
     setState(() {
@@ -38,17 +38,13 @@ class _FileListScreenState extends State<FileListScreen> {
         fileNames.removeWhere((fileName) => selectedFiles.contains(fileName));
         selectedFiles.clear();
       });
-      // Actualizar la lista de archivos después de eliminar
       fetchFileNames();
-
-      // Redireccionar al Home después de eliminar la imagen
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => Home()), // Página Home
+        MaterialPageRoute(builder: (context) => Home()),
       );
     } catch (e) {
       print('Error al eliminar archivos seleccionados: $e');
-      // Aquí puedes mostrar un mensaje de error al usuario si falla la eliminación
     }
   }
 
@@ -60,10 +56,24 @@ class _FileListScreenState extends State<FileListScreen> {
         final File downloadFile = File('${downloadDirectory!.path}/$fileName');
         await ref.writeToFile(downloadFile);
       }
-      // Mostrar un mensaje de éxito al usuario
     } catch (e) {
       print('Error al descargar archivos seleccionados: $e');
-      // Mostrar un mensaje de error al usuario
+    }
+  }
+
+  Future<void> shareSelectedFiles(List<String> fileNames) async {
+    try {
+      List<String> filePaths = [];
+      for (String fileName in fileNames) {
+        final ref = FirebaseStorage.instance.ref().child('images/$fileName');
+        final Directory tempDir = await getTemporaryDirectory();
+        final File tempFile = File('${tempDir.path}/$fileName');
+        await ref.writeToFile(tempFile);
+        filePaths.add(tempFile.path);
+      }
+      await Share.shareFiles(filePaths);
+    } catch (e) {
+      print('Error al compartir archivos seleccionados: $e');
     }
   }
 
@@ -85,14 +95,20 @@ class _FileListScreenState extends State<FileListScreen> {
                 downloadSelectedFiles(selectedFiles);
               },
             ),
+          if (selectedFiles.isNotEmpty)
+            IconButton(
+              icon: Icon(Icons.share),
+              onPressed: () {
+                shareSelectedFiles(selectedFiles);
+              },
+            ),
         ],
       ),
       body: fileNames.isEmpty
           ? Center(child: CircularProgressIndicator())
           : GridView.builder(
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount:
-                    3, // Cambia esto según el número de columnas que desees
+                crossAxisCount: 3,
               ),
               itemCount: fileNames.length,
               itemBuilder: (BuildContext context, int index) {

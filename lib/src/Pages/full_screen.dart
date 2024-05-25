@@ -1,30 +1,32 @@
+import 'dart:io';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:mi_app_optativa/src/Pages/Imagen_edition.dart';
 import 'package:mi_app_optativa/src/Service/FireBaseService.dart';
 import 'package:file_picker/file_picker.dart';
-import 'dart:html' as html;
+import 'package:share_plus/share_plus.dart';
+import 'dart:html' as html; // Asegúrate de importar html para Flutter web
+import 'package:path_provider/path_provider.dart';
 
 class FullImageScreen extends StatelessWidget {
   final String imageUrl;
-  final List<String> imagePaths; // Nueva lista de rutas de imágenes
+  final List<String> imagePaths;
   final int initialIndex;
   final FirebaseStorageService _storageService = FirebaseStorageService();
 
   FullImageScreen({
     required this.imageUrl,
-    required this.imagePaths, // Agregar el parámetro para las rutas de imágenes
+    required this.imagePaths,
     required this.initialIndex,
   });
 
   Future<void> _downloadImage(BuildContext context) async {
     try {
-      // Verificar si la lista de rutas de imágenes está vacía
       if (imagePaths.isEmpty) {
         throw Exception('La lista de rutas de imágenes está vacía');
       }
 
-      // Verificar si initialIndex está dentro del rango de la lista imagePaths
       if (initialIndex < 0 || initialIndex >= imagePaths.length) {
         throw RangeError.range(initialIndex, 0, imagePaths.length - 1,
             'initialIndex fuera de rango');
@@ -33,16 +35,13 @@ class FullImageScreen extends StatelessWidget {
       final imagePath = imagePaths[initialIndex];
       print('Intentando descargar imagen: $imagePath');
 
-      // Verificar si se está ejecutando en la plataforma web
       if (kIsWeb) {
         final anchor = html.AnchorElement(href: imageUrl)
           ..setAttribute('target', '_blank')
-          ..setAttribute('download',
-              ''); // Añade el atributo 'download' para indicar al navegador que descargue el archivo
+          ..setAttribute('download', '');
         anchor.click();
         print('Descargar en la plataforma web no está implementado');
       } else {
-        // Implementa la lógica para descargar en otras plataformas
         String? selectedDirectory =
             await FilePicker.platform.getDirectoryPath();
 
@@ -62,6 +61,44 @@ class FullImageScreen extends StatelessWidget {
       print('Error al descargar la imagen: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error al descargar la imagen')),
+      );
+    }
+  }
+
+  Future<void> _shareImage(BuildContext context) async {
+    try {
+      if (imagePaths.isEmpty) {
+        throw Exception('La lista de rutas de imágenes está vacía');
+      }
+
+      if (initialIndex < 0 || initialIndex >= imagePaths.length) {
+        throw RangeError.range(initialIndex, 0, imagePaths.length - 1,
+            'initialIndex fuera de rango');
+      }
+
+      final imagePath = imagePaths[initialIndex];
+      final ref = FirebaseStorage.instance.ref().child('images/$imagePath');
+
+      if (kIsWeb) {
+        // Implementación específica para compartir en web
+        final imageUrl = await ref.getDownloadURL();
+        html.AnchorElement(
+          href: imageUrl,
+        )
+          ..setAttribute("download", imagePath)
+          ..click();
+      } else {
+        // Implementación para plataformas móviles y de escritorio
+        final Directory tempDir = await getTemporaryDirectory();
+        final File tempFile = File('${tempDir.path}/$imagePath');
+        await ref.writeToFile(tempFile);
+
+        await Share.shareFiles([tempFile.path]);
+      }
+    } catch (e) {
+      print('Error al compartir la imagen: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al compartir la imagen')),
       );
     }
   }
@@ -86,6 +123,10 @@ class FullImageScreen extends StatelessWidget {
           IconButton(
             icon: Icon(Icons.download),
             onPressed: () => _downloadImage(context),
+          ),
+          IconButton(
+            icon: Icon(Icons.share),
+            onPressed: () => _shareImage(context),
           ),
         ],
       ),
