@@ -87,9 +87,19 @@ class FullImageScreen extends StatelessWidget {
         // Implementación para plataformas móviles y de escritorio
         final Directory tempDir = await getTemporaryDirectory();
         final File tempFile = File('${tempDir.path}/$imagePath');
-        await ref.writeToFile(tempFile);
 
-        await Share.shareFiles([tempFile.path], text: '¡Mira esta imagen!');
+        // Descargar la imagen al archivo temporal
+        final DownloadTask downloadTask = ref.writeToFile(tempFile);
+        await downloadTask.whenComplete(() async {
+          try {
+            await Share.shareFiles([tempFile.path], text: '¡Mira esta imagen!');
+          } catch (e) {
+            print('Error al compartir la imagen: $e');
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error al compartir la imagen')),
+            );
+          }
+        });
       }
     } catch (e) {
       print('Error al compartir la imagen: $e');
