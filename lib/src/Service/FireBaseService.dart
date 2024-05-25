@@ -1,6 +1,7 @@
 import 'dart:io';
-
+import 'dart:html' as html;
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
 class FirebaseStorageService {
@@ -99,6 +100,31 @@ class FirebaseStorageService {
     } catch (e) {
       print('Error al descargar archivos seleccionados: $e');
       // Mostrar un mensaje de error al usuario
+    }
+  }
+
+  Future<void> downloadFileToDirectory(
+      String fileName, String directoryPath) async {
+    try {
+      print(
+          'Starting download for file: $fileName to directory: $directoryPath');
+      final ref = _storage.ref().child('images/$fileName');
+      final File downloadFile = File('$directoryPath/$fileName');
+
+      if (kIsWeb) {
+        print('Running on web platform');
+        final url = await ref.getDownloadURL();
+        print('Download URL: $url');
+        html.AnchorElement(href: url)
+          ..setAttribute('download', fileName)
+          ..click();
+        print('File downloaded via web');
+      } else {
+        await ref.writeToFile(downloadFile);
+        print('File downloaded to ${downloadFile.path}');
+      }
+    } catch (e) {
+      print('Error al descargar archivo: $e');
     }
   }
 }

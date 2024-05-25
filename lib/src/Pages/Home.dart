@@ -136,7 +136,8 @@ class _HomeState extends State<Home> {
                                       MaterialPageRoute(
                                         builder: (context) => FullImageScreen(
                                           imageUrl: imageUrl,
-                                          imagePaths: [], // Reemplaza [] con la lista real de rutas de imágenes
+                                          imagePaths:
+                                              imageFiles, // Reemplaza [] con la lista real de rutas de imágenes
                                           initialIndex: 0,
                                         ),
                                       ),
