@@ -38,9 +38,9 @@ class FullImageScreen extends StatelessWidget {
       if (kIsWeb) {
         final anchor = html.AnchorElement(href: imageUrl)
           ..setAttribute('target', '_blank')
-          ..setAttribute('download', '');
+          ..setAttribute('download',
+              ''); // Añade el atributo 'download' para indicar al navegador que descargue el archivo
         anchor.click();
-        print('Descargar en la plataforma web no está implementado');
       } else {
         String? selectedDirectory =
             await FilePicker.platform.getDirectoryPath();
@@ -82,18 +82,14 @@ class FullImageScreen extends StatelessWidget {
       if (kIsWeb) {
         // Implementación específica para compartir en web
         final imageUrl = await ref.getDownloadURL();
-        html.AnchorElement(
-          href: imageUrl,
-        )
-          ..setAttribute("download", imagePath)
-          ..click();
+        await Share.share(imageUrl, subject: '¡Mira esta imagen!');
       } else {
         // Implementación para plataformas móviles y de escritorio
         final Directory tempDir = await getTemporaryDirectory();
         final File tempFile = File('${tempDir.path}/$imagePath');
         await ref.writeToFile(tempFile);
 
-        await Share.shareFiles([tempFile.path]);
+        await Share.shareFiles([tempFile.path], text: '¡Mira esta imagen!');
       }
     } catch (e) {
       print('Error al compartir la imagen: $e');
