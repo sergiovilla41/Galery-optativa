@@ -1,9 +1,7 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:camera/camera.dart';
-import 'package:mi_app_optativa/src/Service/FireBaseService.dart'; // Ajusta el import según la ubicación real del archivo
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as path;
+import 'package:image_picker/image_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
 class CameraFloatingButton extends StatefulWidget {
   @override
@@ -11,62 +9,46 @@ class CameraFloatingButton extends StatefulWidget {
 }
 
 class _CameraFloatingButtonState extends State<CameraFloatingButton> {
-  CameraController? _controller;
-  List<CameraDescription>? _cameras;
-  late FirebaseStorageService _firebaseStorageService;
+  late FirebaseStorage _firebaseStorage;
 
   @override
   void initState() {
     super.initState();
-    _firebaseStorageService = FirebaseStorageService();
-    _initializeCamera();
-  }
-
-  Future<void> _initializeCamera() async {
-    _cameras = await availableCameras();
-    if (_cameras!.isNotEmpty) {
-      _controller = CameraController(_cameras![0], ResolutionPreset.high);
-      await _controller!.initialize();
-      setState(() {});
-    }
+    _firebaseStorage = FirebaseStorage.instance;
   }
 
   Future<void> _takePicture() async {
-    if (_controller != null && _controller!.value.isInitialized) {
-      try {
-        final XFile imageFile = await _controller!.takePicture();
-        final String imagePath = imageFile.path;
+    try {
+      final ImagePicker _picker = ImagePicker();
+      final XFile? pickedImage =
+          await _picker.pickImage(source: ImageSource.camera);
 
-        // Subir imagen a Firebase Storage
-        final fileName = path.basename(imagePath);
-        await _firebaseStorageService.uploadFile(
-            File(imagePath), 'images/$fileName');
+      if (pickedImage != null) {
+        final Uint8List data = await pickedImage.readAsBytes();
+        final String fileName = pickedImage.name;
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Foto tomada y subida con éxito')),
-        );
-      } catch (e) {
-        print('Error al tomar la foto: $e');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al tomar la foto')),
-        );
+        final UploadTask uploadTask =
+            _firebaseStorage.ref('images/$fileName').putData(data);
+
+        await uploadTask.whenComplete(() {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Foto tomada y subida con éxito')),
+          );
+        });
       }
+    } catch (e) {
+      print('Error al tomar la foto: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al tomar la foto')),
+      );
     }
-  }
-
-  @override
-  void dispose() {
-    _controller?.dispose();
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return _controller == null || !_controller!.value.isInitialized
-        ? Container()
-        : FloatingActionButton(
-            onPressed: _takePicture,
-            child: Icon(Icons.camera_alt),
-          );
+    return FloatingActionButton(
+      onPressed: _takePicture,
+      child: Icon(Icons.camera_alt),
+    );
   }
 }
